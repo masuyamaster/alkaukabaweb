@@ -3,7 +3,7 @@
 use App\Http\Controllers\CircleMemberController;
 use Illuminate\Support\Facades\Route;
 
-Route::domain('alkaukaba.com')->group(function () {
+Route::domain(config('app.route_domain'))->group(function () {
     Route::get('/', function () {
         return view('welcome');
     });

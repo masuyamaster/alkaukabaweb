@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Route Domain
+    |--------------------------------------------------------------------------
+    |
+    | The hostname the landing page routes are scoped to (see routes/web.php).
+    | Production serves the real alkaukaba.com; local dev should use a
+    | different hostname (e.g. alkaukaba.local) so the local hosts-file entry
+    | never shadows the live site.
+    |
+    */
+
+    'route_domain' => env('APP_ROUTE_DOMAIN', 'alkaukaba.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
