@@ -213,7 +213,7 @@
 </nav>
 <!-- Actions -->
 <div class="flex items-center gap-4">
-<button class="hidden md:flex bg-primary-container text-on-primary px-6 py-2 rounded font-label-caps text-label-caps uppercase tracking-widest hover:bg-primary-fixed transition-colors duration-150">
+<button class="hidden md:flex bg-primary-container text-on-primary px-6 py-2 rounded font-label-caps text-label-caps uppercase tracking-widest hover:bg-primary-fixed transition-colors duration-150" onclick="document.getElementById('join-circle-modal').classList.remove('hidden')" type="button">
                     Join Circle
                 </button>
 <button class="md:hidden text-on-surface" id="mobile-menu-btn">
@@ -229,7 +229,7 @@
 <a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary pl-4 py-2" href="#rukyat">Rukyat</a>
 <a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary pl-4 py-2" href="#workshops">Workshops</a>
 <a class="font-label-caps text-label-caps text-on-surface-variant hover:text-primary pl-4 py-2" href="#resources">Resources</a>
-<button class="w-full mt-4 bg-primary-container text-on-primary px-6 py-3 rounded font-label-caps text-label-caps uppercase tracking-widest">
+<button class="w-full mt-4 bg-primary-container text-on-primary px-6 py-3 rounded font-label-caps text-label-caps uppercase tracking-widest" onclick="document.getElementById('join-circle-modal').classList.remove('hidden')" type="button">
                     Join Circle
                 </button>
 </div>
@@ -475,6 +475,49 @@
 </nav>
 </div>
 </footer>
+<!-- Join Circle Modal -->
+<div class="hidden fixed inset-0 z-[60] flex items-center justify-center px-margin-mobile" id="join-circle-modal">
+<div class="absolute inset-0 bg-deep-obsidian/80" onclick="document.getElementById('join-circle-modal').classList.add('hidden')"></div>
+<div class="relative w-full max-w-md glass-panel bg-surface-container-high rounded-lg p-8">
+<button aria-label="Tutup" class="absolute top-4 right-4 text-on-surface-variant hover:text-primary" onclick="document.getElementById('join-circle-modal').classList.add('hidden')" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+<h3 class="font-headline-lg-mobile text-[20px] text-starlight-white mb-2">Join Circle</h3>
+<p class="font-body-md text-sm text-on-surface-variant mb-6">Daftarkan diri Anda untuk bergabung dengan Al-Kaukaba Study Circle.</p>
+@if (session('circle_joined'))
+<div class="mb-4 px-4 py-3 rounded bg-primary/10 border border-primary/30 text-primary text-sm">
+                Pendaftaran berhasil! Kami akan menghubungi Anda segera.
+            </div>
+@endif
+<form action="{{ route('circle.join') }}" class="space-y-4" method="POST">
+@csrf
+<div>
+<label class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest" for="name">Nama Lengkap</label>
+<input class="mt-1 w-full bg-surface border border-starlight-white/10 rounded px-4 py-2 text-on-surface focus:outline-none focus:border-primary" id="name" name="name" required type="text" value="{{ old('name') }}"/>
+@error('name')
+<p class="text-error text-xs mt-1">{{ $message }}</p>
+@enderror
+</div>
+<div>
+<label class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest" for="email">Email</label>
+<input class="mt-1 w-full bg-surface border border-starlight-white/10 rounded px-4 py-2 text-on-surface focus:outline-none focus:border-primary" id="email" name="email" required type="email" value="{{ old('email') }}"/>
+@error('email')
+<p class="text-error text-xs mt-1">{{ $message }}</p>
+@enderror
+</div>
+<div>
+<label class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest" for="phone">No. WhatsApp/HP</label>
+<input class="mt-1 w-full bg-surface border border-starlight-white/10 rounded px-4 py-2 text-on-surface focus:outline-none focus:border-primary" id="phone" name="phone" required type="text" value="{{ old('phone') }}"/>
+@error('phone')
+<p class="text-error text-xs mt-1">{{ $message }}</p>
+@enderror
+</div>
+<button class="w-full bg-primary-container text-on-primary px-6 py-3 rounded font-label-caps text-label-caps uppercase tracking-widest hover:bg-primary-fixed transition-colors duration-150" type="submit">
+                    Daftar Sekarang
+                </button>
+</form>
+</div>
+</div>
 <script>
         // Simple mobile menu toggle
         document.getElementById('mobile-menu-btn').addEventListener('click', function() {
@@ -524,5 +567,9 @@
 
                 updateMoonObservation();
                 window.setInterval(updateMoonObservation, 60000);
+
+                @if (session('circle_joined') || $errors->any())
+                document.getElementById('join-circle-modal').classList.remove('hidden');
+                @endif
     </script>
 </body></html>
