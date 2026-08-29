@@ -7,6 +7,7 @@ use Google\Client as GoogleClient;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -119,6 +120,10 @@ class AuthController extends Controller
             $payload = $client->verifyIdToken($idToken);
 
             if (! $payload) {
+                Log::warning('google_login: verifyIdToken returned false', [
+                    'client_id' => config('services.google.client_id'),
+                ]);
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Token Google tidak valid atau sudah kadaluarsa.',
@@ -165,6 +170,11 @@ class AuthController extends Controller
                 ],
             ], 201);
         } catch (\Exception $e) {
+            Log::error('google_login verification failed', [
+                'message' => $e->getMessage(),
+                'client_id' => config('services.google.client_id'),
+            ]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan server saat verifikasi token: '.$e->getMessage(),
