@@ -2,6 +2,8 @@
 
 Laravel 12. Situs "Al-Kaukaba" (Ilmu Hisab Rukyat Lamongan) — landing page + backend API auth untuk app Android `alkaukabaandroid`.
 
+**Sebelum menulis atau mengubah kode di project ini, baca [README.md](README.md) bagian "Konvensi kode"** — mencakup aturan validasi input, bentuk response JSON (termasuk larangan membocorkan pesan exception mentah ke client), dan gaya kode (Pint). Konvensi itu wajib diikuti untuk kode baru maupun perubahan pada kode lama.
+
 ## Infrastruktur produksi
 
 - **VPS**: `root@202.155.17.2` (SSH config lokal: host alias `server-al-kaukaba`), project di `/var/www/alkaukaba`.

@@ -57,4 +57,27 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
 # alkaukabaweb
+
+Backend & landing page Al-Kaukaba (Ilmu Hisab Rukyat Lamongan) — Laravel 12. Detail infrastruktur produksi & gotcha deployment ada di [CLAUDE.md](CLAUDE.md).
+
+## Konvensi kode
+
+Konvensi ini berlaku untuk semua kode baru di project ini, bukan cuma yang sudah ada.
+
+### Controller & validasi
+
+- Jangan validasi input manual pakai `empty()`/`if` berantai. Pakai `Illuminate\Support\Facades\Validator::make()` (controller ini bukan resource controller standar, jadi FormRequest class terpisah dianggap overkill untuk 3 endpoint kecil — cukup `Validator::make()` inline).
+- Endpoint yang **mem-mirror kontrak API legacy** (lihat `AuthController`) harus mempertahankan bentuk response persis seperti sebelumnya (`status`/`message`/`data`, kode HTTP yang sama) — jangan pakai `$request->validate()` langsung karena itu melempar `ValidationException` yang di-render Laravel dengan bentuk berbeda (422 + `errors` object) dan akan memutus kontrak yang dipakai app Android.
+- Untuk route baru yang **bukan** mirror kontrak legacy (mis. `CircleMemberController`), `$request->validate()` biasa tetap jadi pilihan default karena lebih ringkas dan bentuk error Laravel standar tidak masalah di situ.
+
+### Response JSON
+
+- Jangan pernah mengembalikan pesan exception mentah (`$e->getMessage()`) ke client di response API publik — itu bisa membocorkan detail internal. Log detailnya lewat `Log::error()`/`Log::warning()` dengan context yang cukup untuk debugging, lalu balas client dengan pesan generik.
+- Kalau ada bentuk data yang dipakai berulang di beberapa response (mis. `id`/`username`/`email` milik `User`), ekstrak jadi method private kecil (contoh: `userResponse(User $user): array` di `AuthController`) daripada mengulang array literal yang sama di banyak tempat.
+
+### Gaya kode
+
+- Sebelum commit, jalankan `vendor/bin/pint` (Laravel Pint, sudah ada di `require-dev`) untuk auto-format sesuai style resmi Laravel (import order, spacing, dll).
+- Jalankan `php artisan test` sebelum commit kalau ada test yang relevan; untuk endpoint yang mengubah `AuthController`/`CircleMemberController`, tes manual (curl/Postman) ke endpoint yang bersangkutan karena test suite saat ini masih skeleton (`tests/*/ExampleTest.php`) dan belum meng-cover kontroler-kontroler tersebut.
