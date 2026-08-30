@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -23,9 +24,12 @@ class AuthController extends Controller
             'register' => $this->register($request),
             'login' => $this->login($request),
             'google_login' => $this->googleLogin($request),
+            'update_profile' => $this->updateProfile($request),
+            'change_password' => $this->changePassword($request),
+            'delete_account' => $this->deleteAccount($request),
             default => response()->json([
                 'status' => 'error',
-                'message' => 'Endpoint tidak ditemukan. Gunakan ?action=register, ?action=login, atau ?action=google_login',
+                'message' => 'Endpoint tidak ditemukan. Gunakan ?action=register, ?action=login, ?action=google_login, ?action=update_profile, ?action=change_password, atau ?action=delete_account',
             ], 404),
         };
     }
@@ -56,7 +60,7 @@ class AuthController extends Controller
             ], 400);
         }
 
-        User::create([
+        $user = User::create([
             'name' => $data['username'],
             'username' => $data['username'],
             'email' => $data['email'],
@@ -66,6 +70,7 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Registrasi berhasil.',
+            'data' => $this->userResponse($user),
         ], 201);
     }
 
@@ -184,14 +189,166 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{id: int, username: string, email: string}
+     * Ganti nama tampilan (username). Email sengaja tidak bisa diubah lewat endpoint ini -
+     * ganti email butuh alur verifikasi ulang yang belum ada, di luar scope saat ini.
      */
-    private function userResponse(User $user): array
+    private function updateProfile(Request $request): JsonResponse
     {
-        return [
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Sesi tidak valid, silakan login ulang.',
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'username' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Username tidak boleh kosong.',
+            ], 400);
+        }
+
+        $username = $validator->validated()['username'];
+
+        $taken = User::where('username', $username)->where('id', '!=', $user->id)->exists();
+
+        if ($taken) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Username sudah dipakai.',
+            ], 400);
+        }
+
+        $user->update(['username' => $username, 'name' => $username]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profil berhasil diperbarui.',
+            'data' => $this->userResponse($user, issueToken: false),
+        ], 200);
+    }
+
+    private function changePassword(Request $request): JsonResponse
+    {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Sesi tidak valid, silakan login ulang.',
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:6'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data tidak lengkap. Butuh current_password dan new_password (minimal 6 karakter).',
+            ], 400);
+        }
+
+        $data = $validator->validated();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Password saat ini salah.',
+            ], 401);
+        }
+
+        $user->update(['password' => Hash::make($data['new_password'])]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Password berhasil diubah.',
+            // Password berubah -> semua token lama dicabut (di dalam userResponse) dan
+            // token baru diterbitkan, klien harus pakai token ini untuk request berikutnya.
+            'data' => $this->userResponse($user),
+        ], 200);
+    }
+
+    private function deleteAccount(Request $request): JsonResponse
+    {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Sesi tidak valid, silakan login ulang.',
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'password' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Konfirmasi password diperlukan untuk menghapus akun.',
+            ], 400);
+        }
+
+        if (! Hash::check($validator->validated()['password'], $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Password salah.',
+            ], 401);
+        }
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun berhasil dihapus.',
+        ], 200);
+    }
+
+    /**
+     * Resolve user dari Sanctum bearer token tanpa middleware auth:sanctum di route -
+     * satu route /api.php ini juga melayani action publik (register/login/google_login)
+     * yang tidak boleh kena guard itu.
+     */
+    private function authenticatedUser(Request $request): ?User
+    {
+        $token = PersonalAccessToken::findToken((string) $request->bearerToken());
+
+        if (! $token || ! $token->tokenable instanceof User) {
+            return null;
+        }
+
+        return $token->tokenable;
+    }
+
+    /**
+     * @return array{id: int, username: string, email: string, token?: string}
+     */
+    private function userResponse(User $user, bool $issueToken = true): array
+    {
+        $response = [
             'id' => $user->id,
             'username' => $user->username,
             'email' => $user->email,
         ];
+
+        if ($issueToken) {
+            // Satu token aktif per user (bukan per device) - cukup untuk scope app ini saat
+            // ini (single-session), lebih simpel daripada kelola banyak token per device.
+            $user->tokens()->delete();
+            $response['token'] = $user->createToken('android')->plainTextToken;
+        }
+
+        return $response;
     }
 }
