@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -27,9 +28,11 @@ class AuthController extends Controller
             'update_profile' => $this->updateProfile($request),
             'change_password' => $this->changePassword($request),
             'delete_account' => $this->deleteAccount($request),
+            'upload_avatar' => $this->uploadAvatar($request),
+            'delete_avatar' => $this->deleteAvatar($request),
             default => response()->json([
                 'status' => 'error',
-                'message' => 'Endpoint tidak ditemukan. Gunakan ?action=register, ?action=login, ?action=google_login, ?action=update_profile, ?action=change_password, atau ?action=delete_account',
+                'message' => 'Endpoint tidak ditemukan. Gunakan ?action=register, ?action=login, ?action=google_login, ?action=update_profile, ?action=change_password, ?action=delete_account, ?action=upload_avatar, atau ?action=delete_avatar',
             ], 404),
         };
     }
@@ -315,6 +318,68 @@ class AuthController extends Controller
         ], 200);
     }
 
+    private function uploadAvatar(Request $request): JsonResponse
+    {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Sesi tidak valid, silakan login ulang.',
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'photo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:4096'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Foto tidak valid. Gunakan JPG/PNG/WebP maksimal 4MB.',
+            ], 400);
+        }
+
+        $photo = $validator->validated()['photo'];
+
+        if ($user->avatar_path) {
+            Storage::disk('public')->delete($user->avatar_path);
+        }
+
+        $path = $photo->storeAs('avatars', $user->id.'-'.time().'.'.$photo->extension(), 'public');
+
+        $user->update(['avatar_path' => $path]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Foto profil berhasil diperbarui.',
+            'data' => $this->userResponse($user, issueToken: false),
+        ], 200);
+    }
+
+    private function deleteAvatar(Request $request): JsonResponse
+    {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Sesi tidak valid, silakan login ulang.',
+            ], 401);
+        }
+
+        if ($user->avatar_path) {
+            Storage::disk('public')->delete($user->avatar_path);
+            $user->update(['avatar_path' => null]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Foto profil berhasil dihapus.',
+            'data' => $this->userResponse($user, issueToken: false),
+        ], 200);
+    }
+
     /**
      * Resolve user dari Sanctum bearer token tanpa middleware auth:sanctum di route -
      * satu route /api.php ini juga melayani action publik (register/login/google_login)
@@ -332,7 +397,7 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{id: int, username: string, email: string, token?: string}
+     * @return array{id: int, username: string, email: string, avatar_url: ?string, token?: string}
      */
     private function userResponse(User $user, bool $issueToken = true): array
     {
@@ -340,6 +405,7 @@ class AuthController extends Controller
             'id' => $user->id,
             'username' => $user->username,
             'email' => $user->email,
+            'avatar_url' => $user->avatar_path ? Storage::disk('public')->url($user->avatar_path) : null,
         ];
 
         if ($issueToken) {
