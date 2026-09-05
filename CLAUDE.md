@@ -41,9 +41,18 @@ location ~ \.php$ {
 
 ## Auth API (mirror kontrak legacy)
 
-Single entry point: `POST /api.php?action=register|login|google_login` (lihat `app/Http/Controllers/AuthController.php`). Tidak domain-scoped (beda dari route landing page yang dikunci `Route::domain(config('app.route_domain'))`), supaya app Android bisa hit lewat IP/host apa pun saat testing lokal maupun dari kedua domain produksi di atas.
+Single entry point: `POST /api.php?action=...` (lihat `app/Http/Controllers/AuthController.php`), sekarang menangani 6 action: `register`, `login`, `google_login` (publik, tanpa auth), dan `update_profile`, `change_password`, `delete_account` (butuh bearer token — lihat di bawah). Tidak domain-scoped (beda dari route landing page yang dikunci `Route::domain(config('app.route_domain'))`), supaya app Android bisa hit lewat IP/host apa pun saat testing lokal maupun dari kedua domain produksi di atas.
 
 - `google_login` butuh `GOOGLE_CLIENT_ID` di `.env` — harus **OAuth 2.0 Client ID bertipe "Web application"** dari Google Cloud Console project `al-kaukaba` (https://console.cloud.google.com/apis/credentials?project=al-kaukaba), BUKAN client ID tipe Android. `verifyIdToken()` mencocokkan audience token terhadap ID ini; Client ID yang dipakai harus sama persis dengan yang dipanggil app Android di `requestIdToken(...)`.
+
+### Sanctum bearer token (per 2026-08-30)
+
+`laravel/sanctum` sudah lama jadi dependency & tabel `personal_access_tokens` sudah lama ter-migrate, tapi **baru benar-benar dipakai mulai 2026-08-30** lewat fitur Profil di app Android (lihat `docs/features/profil.md` di repo `alkaukabaandroid`).
+
+- `register`/`login`/`google_login` sekarang menerbitkan token lewat `AuthController::userResponse()` — `$user->tokens()->delete()` (cabut semua token lama) lalu `$user->createToken('android')->plainTextToken`. **Konsekuensi**: satu token aktif per user, bukan per device — login di device kedua otomatis mencabut sesi device pertama. Belum didesain untuk multi-device.
+- `update_profile`/`change_password`/`delete_account` **tidak** pakai middleware `auth:sanctum` di route (satu route `/api.php` ini juga melayani action publik yang tidak boleh kena guard itu). Sebagai gantinya, `AuthController::authenticatedUser()` resolve user manual dari header `Authorization: Bearer <token>` lewat `Laravel\Sanctum\PersonalAccessToken::findToken()`. Kalau nambah action terproteksi baru, panggil helper ini di awal method-nya, jangan andalkan `$request->user()` (itu butuh guard Sanctum aktif di route, yang sengaja tidak dipasang di sini).
+- `change_password` & `delete_account` masing-masing minta re-konfirmasi password (`current_password` / `password`) sebelum eksekusi — bukan cuma mengandalkan token, karena token di app ini disimpan permanen di client tanpa expiry, jadi re-konfirmasi password jadi lapisan keamanan tambahan untuk aksi sensitif.
+- Sudah dites end-to-end lewat `curl` (lokal & produksi) sebelum dan sesudah deploy — termasuk skenario password salah dan verifikasi token lama benar-benar tercabut setelah `change_password`.
 
 ## Catatan skema DB
 
