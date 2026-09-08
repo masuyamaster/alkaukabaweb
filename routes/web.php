@@ -9,6 +9,10 @@ Route::domain(config('app.route_domain'))->group(function () {
         return view('welcome');
     });
 
+    Route::get('/hapus-akun', function () {
+        return view('hapus-akun');
+    })->name('hapus-akun');
+
     Route::post('/join-circle', [CircleMemberController::class, 'store'])->name('circle.join');
 });
 
