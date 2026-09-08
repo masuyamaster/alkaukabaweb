@@ -39,6 +39,29 @@ location ~ \.php$ {
 
 **Implikasi ke depan**: kalau nanti nambah route baru yang juga sengaja berakhiran `.php` (demi kompatibilitas legacy), route itu OTOMATIS akan kena masalah yang sama di server ini kecuali fix di atas tetap ada di nginx config. Config nginx TIDAK ikut ter-track di git repo ini (dia hidup di `/etc/nginx/` di VPS, di luar `/var/www/alkaukaba`), jadi kalau server di-rebuild/pindah, fix ini gampang ketinggalan — perlu direplikasi manual.
 
+## ⚠️ Gotcha deploy: route baru 404 meski sudah `git pull`
+
+Server produksi ini rutin di-`route:cache` (lihat pola deploy di atas). Kalau
+nambah route baru di `routes/web.php` (atau file route lain) dan cuma
+`git pull` tanpa refresh cache, route baru itu akan **404** di production
+walau kodenya sudah ter-update — karena Laravel resolve dari
+`bootstrap/cache/routes-v7.php` (hasil cache lama), bukan baca ulang
+`routes/web.php`. Halaman 404-nya pun halaman error bawaan Laravel yang
+rapi (bukan "File not found." mentah dari nginx seperti gotcha `.php` di
+atas), jadi gampang dikira route-nya salah tulis padahal sebenarnya cuma
+cache basi. Pernah kejadian persis ini pas nambah halaman `/hapus-akun`
+(2026-09-09).
+
+**Fix**: setiap habis `git pull` yang menambah/mengubah route, jalankan di
+VPS:
+```
+php artisan route:clear
+php artisan route:cache
+```
+**Cara cepat memastikan ini penyebabnya** (bukan cuma nebak): `php artisan
+route:list --path=<route-baru>` di server — kalau kosong padahal ada di
+`routes/web.php` versi lokal, itu konfirmasi cache basi.
+
 ## Auth API (mirror kontrak legacy)
 
 Single entry point: `POST /api.php?action=...` (lihat `app/Http/Controllers/AuthController.php`), sekarang menangani 6 action: `register`, `login`, `google_login` (publik, tanpa auth), dan `update_profile`, `change_password`, `delete_account` (butuh bearer token — lihat di bawah). Tidak domain-scoped (beda dari route landing page yang dikunci `Route::domain(config('app.route_domain'))`), supaya app Android bisa hit lewat IP/host apa pun saat testing lokal maupun dari kedua domain produksi di atas.
