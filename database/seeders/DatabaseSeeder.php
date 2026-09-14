@@ -23,5 +23,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call(DoaSeeder::class);
+        $this->call(DailyQuoteRefSeeder::class);
     }
 }
