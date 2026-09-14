@@ -30,11 +30,20 @@ class DailyQuoteController extends Controller
      */
     public function today(): JsonResponse
     {
-        $today = now()->toDateString();
+        $cacheKey = 'daily-quote:'.now()->toDateString();
 
-        $quote = Cache::remember("daily-quote:{$today}", now()->endOfDay(), function () {
-            return $this->resolveTodayQuote();
-        });
+        $quote = Cache::get($cacheKey);
+
+        if (! $quote) {
+            $quote = $this->resolveTodayQuote();
+
+            // Jangan cache hasil fallback - kalau penyebabnya transient (tabel
+            // baru diseed, API eksternal sempat down), request berikutnya
+            // harus langsung bisa pulih, bukan "terjebak" fallback semalaman.
+            if ($quote !== self::FALLBACK) {
+                Cache::put($cacheKey, $quote, now()->endOfDay());
+            }
+        }
 
         return response()->json(['data' => $quote]);
     }
