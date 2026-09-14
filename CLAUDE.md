@@ -2,6 +2,22 @@
 
 Laravel 12. Situs "Al-Kaukaba" (Ilmu Hisab Rukyat Lamongan) — landing page + backend API auth untuk app Android `alkaukabaandroid`.
 
+## ⚠️ Ini backend produksi yang BENAR — jangan bingung dengan `alkaukabawebserver`
+
+Repo ini (`C:\Project\personal\alkaukabaweb`) adalah satu-satunya backend yang
+benar-benar live di `alkaukaba.com` / `api.alkaukaba.com` dan dipakai app
+Android `alkaukabaandroid` (auth via `/api.php?action=...` **dan** sejak
+2026-09-14 fitur Doa & Dzikir via `/api/doa-categories*`).
+
+Ada project lain bernama mirip, `C:\Project\AlKaukaba\alkaukabawebserver`
+(skeleton Laravel 10 generik, `composer.json` masih `"name": "laravel/laravel"`)
+yang **sempat keliru** dipakai untuk membangun fitur Doa & Dzikir — migration,
+model, controller, seeder di situ hanya prototipe lokal, **tidak pernah
+di-push/deploy ke produksi**, dan bukan sumber kebenaran. Fitur Doa & Dzikir
+yang benar-benar live sudah dipindahkan ke repo ini (lihat riwayat commit).
+**Semua perubahan backend Al-Kaukaba ke depan harus dikerjakan di repo ini**,
+bukan di `alkaukabawebserver`.
+
 **Sebelum menulis atau mengubah kode di project ini, baca [README.md](README.md) bagian "Konvensi kode"** — mencakup aturan validasi input, bentuk response JSON (termasuk larangan membocorkan pesan exception mentah ke client), dan gaya kode (Pint). Konvensi itu wajib diikuti untuk kode baru maupun perubahan pada kode lama.
 
 ## Infrastruktur produksi
